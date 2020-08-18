@@ -1,0 +1,6 @@
+title: "Geography 176A"
+author: "[Meagan Brown](https://meaganbrown.github.io)"
+subtitle: 'Lab 02: COVID-19 Pandemic'
+output:
+  html_document: lab-02.html_document
+  theme: darkly
