@@ -54,7 +54,8 @@ cities = read_csv("~/Documents/github/geog-176A-labs/data/uscities.csv") %>%
   st_transform(eqdc)
 ```
 
-### Question 2
+
+## Question 2
 
 # 2.1 Distance to USA Border (km)
 ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
@@ -70,10 +71,10 @@ usadistance = USAboundaries::us_states() %>%
   st_transform(eqdc)
 
 dist_to_us = cities %>% 
-  mutate(dist = st_distance(., usadistance), 
+  mutate(dist = st_distance(cities, usadistance), 
          dist = set_units(dist, "km"),
          dist = drop_units(dist)) %>% 
-  select(city, dist, state_name, population)
+  select(city, dist, state_name)
 
 cities %>%
   mutate(dist = st_distance(., usadistance),
