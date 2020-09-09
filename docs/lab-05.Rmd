@@ -1,0 +1,309 @@
+---
+title: "Geography 176A"
+author: "[Meagan Brown](https://meaganbrown.github.io)"
+subtitle: 'Lab 05: Rasters and Remote Sensing'
+output:
+  html_document:
+    theme: darkly
+---
+
+```{r include=FALSE}
+
+#packages 
+
+library(knitr)
+library(raster) 
+library(tidyverse) 
+library(getlandsat) 
+library(sf)
+library(leaflet) 
+```
+
+
+# Question 2
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+#Step 2
+
+flood_scene = read_csv('~/Documents/github/geog-176A-labs/data/palo-flood-scene.csv')
+
+
+files <- lsat_scene_files(flood_scene$download_url)%>%
+  filter(grepl(paste0('B', 1:6, ".TIF$", collapse = '|'), file)) %>%
+  arrange(file) %>% 
+  pull(file)
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+#Step 3
+st = sapply(files, lsat_image) 
+
+b = stack(st) %>% setNames(paste0('band', 1:6))
+area(b)
+```
+
+
+>The dimensions are 7811 rows,  7861 columns, and 59996291 cells with 6 layers. The assigned CRS  was WGS84 datum, UM. The cell resolution is 30 x 30.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+#Step 4
+crop_ = aoi %>% 
+  st_as_sf() %>% 
+  st_transform(crs(b))
+
+bCrop = crop(b, crop_)
+area(bCrop)
+```
+
+
+>The dimensions are 340 rows, 346 columns, and 117640 cells with 6 layers. The assigned CRS was WGS84, UM. The cell resolution is 30 x 30.
+
+## Question 3
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+# Step 1
+bands <- bCrop %>% setNames(c('coastal', 'blue', 'green', 'red', 'nir', 'swir'))
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+# Natural Color
+plotRGB(bands, r = 4, g = 3, b = 2)
+```
+
+***
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+# NIR-R-G (Infared)
+plotRGB(bands, r = 5, g = 4, b = 2)
+```
+
+***
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+# NIR-SWIR1-R (false color) 
+plotRGB(bands, r = 5, g = 6, b = 4)
+```
+
+***
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+# False color for vegetation and water
+plotRGB(bands, r = 5, g = 7, b = 1)
+```
+
+***
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+# Step 2
+
+# Natural Color
+plotRGB(bands, r = 4, g = 3, b = 2, stretch = 'lin')
+```
+
+***
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+# NIR-R-G (Infared)
+plotRGB(bands, r = 5, g = 4, b = 2, stretch = 'hist')
+```
+
+***
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+# NIR-SWIR1-R (false color) 
+plotRGB(bands, r = 5, g = 6, b = 4, stretch = 'lin')
+```
+
+***
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+#False color for vegetation and water
+plotRGB(bands, r = 5, g = 7, b = 1, stretch = 'hist')
+```
+
+
+>The purpose of a color stretch in improving clarity and/or contrast allows for different ways to analyze data. You can either use "lin" for a linear stretch or "hist" for a histogram stretch. These different stretches allow you to observe different things and analyze data in different ways. For example, in the second to last plot a "lin" stretch was used and for the last plot a "hist" stretch was used. In the hist map smaller water channels are seen more clearly as the red and blue allow for more contrast against the green color.  
+
+
+## Question 4
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+# Step 1
+
+ndvi = (bands$nir - bands$red)/(bands$nir + bands$red)
+ndwi = (bands$green - bands$nir)/(bands$green + bands$nir)
+mndwi = (bands$green - bands$swir)/(bands$green + bands$swir)
+wri = (bands$green + bands$red)/(bands$nir + bands$swir)
+swi = 1/(sqrt(bands$blue-bands$swir))
+stacks <- stack(ndvi, ndwi, mndwi, wri, swi) %>% 
+  setNames(c('NDVI', 'NDWI', 'MNDWI', 'WRI', 'SWI'))
+plot(stacks, col = colorRampPalette(c("blue", "white", "red"))(256))
+```
+
+
+>In all 5 maps, the general shape of the waterway is clearly defined and visible. The SWI map differs from the other 4 in that you are unable to see the outline of the city as you can in the other 4. NDVI and NDWI maps are more detailed in regard to color. They represent more detail than the other 4 maps. In MNDWI and WRI there is the same color scale however with much less differntiation between points and colors. This could be due to their differences in sccales. 
+
+
+```{r include=FALSE}
+
+# Step 2.1
+
+ndviThreshold = 
+  function(x) {ifelse(x<=0,1,0)}
+ndwiThreshold = 
+  function(x) {ifelse(x>=0,1,0)}
+mndwiThreshold = 
+  function(x) {ifelse(x>=0,1,0)}
+wriThreshold = 
+  function(x) {ifelse(x>=1,1,0)}
+swiThreshold = 
+  function(x) {ifelse(x<=5,1,0)}
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+#2.2
+
+
+ndviFlood = 
+  calc(ndvi, ndviThreshold)
+ndwiFlood = 
+  calc(ndwi, ndwiThreshold)
+mndwiFlood = 
+  calc(mndwi, mndwiThreshold)
+wriFlood = 
+  calc(wri, wriThreshold)
+swiFlood = 
+  calc(swi, swiThreshold)
+stackFlood = 
+  stack(c(ndviFlood, ndwiFlood, mndwiFlood, wriFlood, swiFlood)) %>% 
+  setNames(c('NDVI', 'NDWI', 'MNDWI', 'WRI', 'SWI'))
+
+plot(stackFlood, col = 
+       colorRampPalette(c("white","blue"))(256))
+
+sum(is.na(values(ndviFlood)))
+sum(is.na(values(ndwiFlood)))
+sum(is.na(values(mndwiFlood)))
+sum(is.na(values(wriFlood)))
+sum(is.na(values(swiFlood)))
+
+values(swiFlood) <- ifelse(is.na(values(swiFlood)), 0, values(swiFlood))
+
+```
+
+## Question 5
+
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+# Step 1
+set.seed(20200900)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+# Step 2
+values <- getValues(bands)
+dim(values)
+
+values = na.omit(values)
+
+rastClust <- kmeans(values, 12, iter.max = 100)
+
+kmeans_raster = stacks$NDVI
+values(kmeans_raster) = rastClust$cluster
+
+plot(kmeans_raster)
+
+```
+
+
+>The dimensions of the extracted values tell us that the values are expressed as a matrix of size 117640 by 6. The dimensions of bands were 340 by 346 with 6 layers, 340*246 = 117640, which means the values are stored as individual points as one dimension and the layers as the other.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+# Step 3 
+values2 = values(ndwiFlood)
+tab = table(values2, values(kmeans_raster)) 
+idx = which.max(tab[2,])
+thresh = function(x) {ifelse(x == idx, 1, 0)}
+flood = calc(kmeans_raster, thresh)
+
+
+values2 = values(ndwiFlood)
+table(values2, values(kmeans_raster)) %>% 
+  which.max()
+idx = which.max(table1[2,])
+thresh = function(x) {ifelse(x == idx, 0, 1)}
+flood = calc(kmeans_raster, thresh) 
+
+stackFlood <- addLayer(stackFlood, flood)
+names(stackFlood)[6] = "K Means"
+
+plot(stackFlood, col = 
+       colorRampPalette(c("white","blue"))(256))
+
+```
+
+## Question 6 
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+# Step 1
+floodtable = cellStats(stackFlood, sum)
+knitr::kable(floodtable, 
+             caption = "Number of Flooded Cells per Image", 
+             col.names = c("Number of Cells"),
+format.args = list(big.mark = ",")) %>%
+kableExtra::kable_styling("striped", full_width = TRUE, font_size = 14)
+
+table2 = floodtable * 900
+
+knitr::kable(table2, 
+caption = "Area of Flooded Cells (m^2)", 
+col.names = c("Flooded Area"),
+format.args = list(big.mark = ",")) %>%
+kableExtra::kable_styling("striped", full_width = TRUE, font_size = 14)
+```
+
+
+>The resolution is 30x30, CRS makes the units meters, so the area is 900 meters. A single cell has an area of 900 meters squared. To get the total area, we need to multiply the number of cells by 900.
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+# Step 2
+cR <- 
+  calc(stackFlood, function(x){sum(x)}) %>% 
+  setNames('Flood Uncertainty')
+
+cRp = plot(cR, col = blues9, main = 'Flood Uncertainty') 
+
+values(stackFlood) <- 
+  ifelse(values(stackFlood)==0, NA, values(stackFlood))
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+# Step 3
+library(leaflet)
+
+leaflet(cR)
+
+```
+
+
+
+>The pixelation of the map has caused some of the cells to not be an even number. Some cells may be split differently, so they are assinged likelihood to flood differently within the same cell. 
+
+>I had to use leaflet instead of mapview in order to knit, I'm not sure why the maps don't show up with leaflet
+
+## Extra Credit 
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+residential = st_point(c(-91.78960, 42.06310)) %>% 
+  st_sfc(crs = 4326) %>% 
+  st_transform(crs(stackFlood)) %>% 
+  as_Spatial()
+
+print("Lng = -91.78960, Lat = 42.06310")
+raster::extract(stackFlood, residential)
+```
+
+
+>All maps captured the flooding at the location.
