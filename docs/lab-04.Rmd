@@ -1,11 +1,13 @@
+
 ---
 title: "Geography 176A"
 author: "[Meagan Brown](https://meaganbrown.github.io)"
 subtitle: 'Lab 04: Tesselations, Point-in-Ploygon'
 output:
   html_document:
-  theme: darkly
+    theme: darkly
 ---
+
 # Question 1
 ```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 #1.1
